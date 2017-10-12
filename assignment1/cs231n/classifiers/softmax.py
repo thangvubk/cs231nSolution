@@ -30,7 +30,21 @@ def softmax_loss_naive(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  N = X.shape[0]
+  D = X.shape[1]
+  C = W.shape[1]
+  y_one_hot = np.eye(C)[y]  #shape (N, C)
+  a = 0
+  for i in range(N):
+    Xi = X[i, :].reshape(1, D)
+    yi = y_one_hot[i].reshape(1, C) #shape (1, C)
+    Z = np.dot(Xi, W)  #shape (1, C)
+    Zexp = np.exp(Z)
+    A = Zexp/np.sum(Zexp) #shape (1, C)
+    assert np.abs(np.sum(A) - 1) < 1E-5, 'sum of softmax outputs is not 1'
+
+    loss += -np.sum(yi*np.log(A))/N + reg*np.linalg.norm(W)**2/N
+    dW += np.dot(Xi.T, (A - yi))/N + 2*reg*W/N
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -54,7 +68,17 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  N = X.shape[0]
+  D = X.shape[1]
+  C = W.shape[1]
+  y_one_hot = np.eye(C)[y]  #shape (N, C)
+  Z = np.dot(X, W)   # shape (N, C)
+  Zexp = np.exp(Z)
+  A = Zexp/np.sum(Zexp, axis=1).reshape(N, 1) #shape (N, C)
+  assert A.shape == (N, C)
+
+  loss = -np.sum(y_one_hot*np.log(A))/N + reg*np.linalg.norm(W)**2
+  dW = np.dot(X.T, A - y_one_hot)/N + 2*reg*W
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
