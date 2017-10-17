@@ -293,7 +293,9 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    
+    # this is already simplified :D
+    dx, dgamma, dbeta = batchnorm_backward(dout, cache)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
