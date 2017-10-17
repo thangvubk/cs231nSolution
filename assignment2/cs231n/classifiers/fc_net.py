@@ -110,8 +110,8 @@ class TwoLayerNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         loss, dZ2 = softmax_loss(Z2, y) 
-        dZ1, dW2, db2 = affine_backward(dZ2, fc_cache2)
-        _, dW1, db1 = affine_relu_backward(dZ1, cache1)
+        dA1, dW2, db2 = affine_backward(dZ2, fc_cache2)
+        _, dW1, db1 = affine_relu_backward(dA1, cache1)
         loss += self.reg*np.sum(W1*W1)/2 + self.reg*np.sum(W2*W2)/2
         dW2 += self.reg*W2
         dW1 += self.reg*W1
