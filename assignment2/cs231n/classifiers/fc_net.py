@@ -254,6 +254,10 @@ class FullyConnectedNet(object):
         ############################################################################
         Ai = np.copy(X) # Ai is temporary variable to feed the output of previous layer to the next one
         caches = {}
+
+        if self.use_dropout:
+            dropout_caches = {}
+
         # Forward network for (L - 1) FC->Relu layers
         for i in range(self.num_layers - 1):
             if self.use_batchnorm:
@@ -265,6 +269,11 @@ class FullyConnectedNet(object):
                                                         self.bn_params[i])
             else:
                 Ai, caches[i] = affine_relu_forward(Ai, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
+            # If dropout is used, append dropout layer to relu layer
+            if self.use_dropout:
+                Ai, dropout_caches[i] = dropout_forward(Ai, self.dropout_param)
+
+
         # compute score
         ZL, fc_cache_L = affine_forward(Ai, self.params['W' + str(self.num_layers)], self.params['b' + str(self.num_layers)])
         scores = ZL
@@ -297,6 +306,8 @@ class FullyConnectedNet(object):
         
         # I use this looop's range to make the forward and the backward loops have the same index 
         for i in range((self.num_layers - 2), -1, -1): # i = L - 2, ..., 2, 1, 0
+            if self.use_dropout:
+                dAi = dropout_backward(dAi, dropout_caches[i])
             if self.use_batchnorm:
                 dAi, grads['W' + str(i + 1)], grads['b' + str(i + 1)], grads['gamma' + str(i + 1)], grads['beta' + str(i + 1)] = affine_bn_relu_backward(dAi, caches[i])
             else:
