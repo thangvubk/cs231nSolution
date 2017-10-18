@@ -188,6 +188,13 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers):
             self.params['W' + str(i + 1)] = weight_scale*np.random.randn(layer_dims[i], layer_dims[i + 1])
             self.params['b' + str(i + 1)] = np.zeros(layer_dims[i + 1])
+        
+        # initialize gamma and beta for hidden layer if batch norm is used
+        if self.use_batchnorm:
+            for i, hidden_dim in enumerate(hidden_dims):
+                self.params['gamma' + str(i + 1)] = np.ones(hidden_dim)
+                self.params['beta' + str(i + 1)] = np.zeros(hidden_dim)
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -249,7 +256,15 @@ class FullyConnectedNet(object):
         caches = {}
         # Forward network for (L - 1) FC->Relu layers
         for i in range(self.num_layers - 1):
-            Ai, caches[i] = affine_relu_forward(Ai, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
+            if self.use_batchnorm:
+                Ai, caches[i] =  affine_bn_relu_forward(Ai, 
+                                                        self.params['W' + str(i + 1)], 
+                                                        self.params['b' + str(i + 1)], 
+                                                        self.params['gamma' + str(i + 1)], 
+                                                        self.params['beta' + str(i + 1)], 
+                                                        self.bn_params[i])
+            else:
+                Ai, caches[i] = affine_relu_forward(Ai, self.params['W' + str(i + 1)], self.params['b' + str(i + 1)])
         # compute score
         ZL, fc_cache_L = affine_forward(Ai, self.params['W' + str(self.num_layers)], self.params['b' + str(self.num_layers)])
         scores = ZL
@@ -278,11 +293,14 @@ class FullyConnectedNet(object):
         # Compute grad for the L'th layer and total loss
         loss, dZL = softmax_loss(ZL, y)
         # dZi propagate backward
-        dZi, grads['W'+ str(self.num_layers)], grads['b' + str(self.num_layers)] = affine_backward(dZL, fc_cache_L)
+        dAi, grads['W'+ str(self.num_layers)], grads['b' + str(self.num_layers)] = affine_backward(dZL, fc_cache_L)
         
         # I use this looop's range to make the forward and the backward loops have the same index 
         for i in range((self.num_layers - 2), -1, -1): # i = L - 2, ..., 2, 1, 0
-            dZi, grads['W'+ str(i + 1)], grads['b' + str(i + 1)] = affine_relu_backward(dZi, caches[i])
+            if self.use_batchnorm:
+                dAi, grads['W' + str(i + 1)], grads['b' + str(i + 1)], grads['gamma' + str(i + 1)], grads['beta' + str(i + 1)] = affine_bn_relu_backward(dAi, caches[i])
+            else:
+                dAi, grads['W' + str(i + 1)], grads['b' + str(i + 1)] = affine_relu_backward(dAi, caches[i])
         # regularization term
         for i in range(self.num_layers):
             W_temp = self.params['W' + str(i + 1)]
