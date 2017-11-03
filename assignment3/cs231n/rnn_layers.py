@@ -34,7 +34,10 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     # hidden state and any values you need for the backward pass in the next_h   #
     # and cache variables respectively.                                          #
     ##############################################################################
-    pass
+    next_h_bar = (x.dot(Wx) + b) + prev_h.dot(Wh)
+    next_h = np.tanh(next_h_bar)
+
+    cache = x, prev_h, Wx, Wh, b, next_h_bar
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -63,7 +66,14 @@ def rnn_step_backward(dnext_h, cache):
     # HINT: For the tanh function, you can compute the local derivative in terms #
     # of the output value from tanh.                                             #
     ##############################################################################
-    pass
+    x, prev_h, Wx, Wh, b, next_h_bar = cache
+
+    dnext_h_bar = dnext_h*(1 - np.tanh(next_h_bar)**2)
+    dx          = dnext_h_bar.dot(Wx.T)
+    dprev_h     = dnext_h_bar.dot(Wh.T)
+    dWx         = x.T.dot(dnext_h_bar)
+    dWh         = prev_h.T.dot(dnext_h_bar)
+    db          = np.sum(dnext_h_bar, axis=0)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -88,13 +98,20 @@ def rnn_forward(x, h0, Wx, Wh, b):
     - h: Hidden states for the entire timeseries, of shape (N, T, H).
     - cache: Values needed in the backward pass
     """
-    h, cache = None, None
+    h, cache = None, {} # cache will be dictionary of tuples
     ##############################################################################
     # TODO: Implement forward pass for a vanilla RNN running on a sequence of    #
     # input data. You should use the rnn_step_forward function that you defined  #
     # above. You can use a for loop to help compute the forward pass.            #
     ##############################################################################
-    pass
+    N, T, D = x.shape
+    H = h0.shape[1]
+
+    h = np.zeros((N, T, H))
+    h[:, 0, :], cache[0] = rnn_step_forward(x[:, 0, :], h0, Wx, Wh, b) # initial h_i
+
+    for i in range(1, T):
+        h[:, i, :], cache[i] = rnn_step_forward(x[:, i, :], h[:, i - 1,:], Wx, Wh, b)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -121,7 +138,34 @@ def rnn_backward(dh, cache):
     # sequence of data. You should use the rnn_step_backward function that you   #
     # defined above. You can use a for loop to help compute the backward pass.   #
     ##############################################################################
-    pass
+    # Get data dimension
+    x0, h0 = cache[0][0], cache[0][1]
+    N, D = x0.shape
+    T = len(cache)
+    H = h0.shape[1]
+   
+    dx = np.zeros((N, T, D))
+    dWx = np.zeros((D, H))
+    dWh = np.zeros((H, H))
+    db = np.zeros(H)
+    
+    # compute for the last state
+    dx[:, T-1, :], dhi, dWx_temp, dWh_temp, db_temp = rnn_step_backward(dh[:, T - 1, :], cache[T-1])
+    dWx += dWx_temp
+    dWh += dWh_temp
+    db += db_temp
+
+    for i in range(T - 2, -1, -1):
+        # In general, dhi is stored for each time stamp so we ignore dhi
+        # dx is compute at each time stamps
+        # dWx, dWh, dWb are shared for whole graph
+        # dhi will be the summation of dhi of previous state and dh[:, i-1, :]
+        dhi += dh[:, i, :]
+        dx[:, i, :], dhi, dWx_temp, dWh_temp, db_temp  = rnn_step_backward(dhi, cache[i])
+        dWx += dWx_temp
+        dWh += dWh_temp
+        db  += db_temp
+    dh0 = dhi # dh0 euqals last state of dhi
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -149,7 +193,11 @@ def word_embedding_forward(x, W):
     #                                                                            #
     # HINT: This can be done in one line using NumPy's array indexing.           #
     ##############################################################################
-    pass
+    # One hot coding then do multiply
+    V = W.shape[0]
+    x_one_hot = (np.arange(V) == x[..., None]).astype(int) # shape N, T, V
+    out = x_one_hot.dot(W) 
+    cache = x_one_hot
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
@@ -178,7 +226,9 @@ def word_embedding_backward(dout, cache):
     # Note that Words can appear more than once in a sequence.                   #
     # HINT: Look up the function np.add.at                                       #
     ##############################################################################
-    pass
+    x_one_hot = cache # shape N, T, V
+    x_one_hot = x_one_hot.transpose(2, 0, 1) # shape V, N, T
+    dW = np.tensordot(x_one_hot, dout)
     ##############################################################################
     #                               END OF YOUR CODE                             #
     ##############################################################################
